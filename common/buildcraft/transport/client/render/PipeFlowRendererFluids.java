@@ -43,8 +43,11 @@ import buildcraft.transport.pipe.flow.PipeFlowFluids;
 public enum PipeFlowRendererFluids implements IPipeFlowRenderer<PipeFlowFluids> {
     INSTANCE;
 
+    private Tessellator fluidTessellator = new Tessellator(131072);
+
     @Override
     public void render(PipeFlowFluids flow, double x, double y, double z, float partialTicks, BufferBuilder vb) {
+        fluidTessellator.getBuffer().reset();
         FluidStack forRender = flow.getFluidStackForRender();
         if (forRender == null) {
             return;
@@ -65,7 +68,8 @@ public enum PipeFlowRendererFluids implements IPipeFlowRenderer<PipeFlowFluids> 
 
         FluidRenderer.vertex.lighti(combinedLight);
 
-        BufferBuilder fluidBuffer = Tessellator.getInstance().getBuffer();
+
+        BufferBuilder fluidBuffer = fluidTessellator.getBuffer();
         fluidBuffer.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
         fluidBuffer.setTranslation(x, y, z);
 
@@ -151,7 +155,7 @@ public enum PipeFlowRendererFluids implements IPipeFlowRenderer<PipeFlowFluids> 
 
         prof.endStartSection("draw");
         fluidBuffer.setTranslation(0, 0, 0);
-        Tessellator.getInstance().draw();
+        fluidTessellator.draw();
 
         RenderHelper.enableStandardItemLighting();
 

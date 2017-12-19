@@ -6,29 +6,31 @@
 
 package buildcraft.lib.net;
 
-import java.io.IOException;
-
+import buildcraft.api.core.BCLog;
+import buildcraft.lib.BCLibProxy;
+import buildcraft.lib.misc.MessageUtil;
 import io.netty.buffer.ByteBuf;
-
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
-
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import buildcraft.api.core.BCLog;
-
-import buildcraft.lib.BCLibProxy;
-import buildcraft.lib.misc.MessageUtil;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MessageUpdateTile implements IMessage {
+    private static Map<Class<? extends TileEntity>, SpecialHandler> handlerOverrides = new HashMap<>();
+
     private BlockPos pos;
     private PacketBufferBC payload;
 
     @SuppressWarnings("unused")
-    public MessageUpdateTile() {}
+    public MessageUpdateTile() {
+    }
 
     public MessageUpdateTile(BlockPos pos, PacketBufferBC payload) {
         this.pos = pos;
@@ -63,16 +65,33 @@ public class MessageUpdateTile implements IMessage {
             return null;
         }
         TileEntity tile = player.world.getTileEntity(message.pos);
-        if (tile instanceof IPayloadReceiver) {
-            try {
+
+        try {
+            if (tile != null && handlerOverrides.containsKey(tile.getClass())) {
+                return handlerOverrides.get(tile.getClass()).receivePayload(message.pos, message.payload, ctx);
+            } else if (tile instanceof IPayloadReceiver) {
                 return ((IPayloadReceiver) tile).receivePayload(ctx, message.payload);
-            } catch (IOException io) {
-                throw new RuntimeException(io);
+            } else {
+                BCLog.logger.warn("Dropped message for player " + player.getName() + " for tile at " + message.pos
+                        + " (found " + tile + ")");
             }
-        } else {
-            BCLog.logger.warn("Dropped message for player " + player.getName() + " for tile at " + message.pos
-                + " (found " + tile + ")");
+        } catch (IOException io) {
+            throw new RuntimeException(io);
         }
+
         return null;
     };
+
+    public static <T extends TileEntity> void addSpecialHandler(Class<T> teClass, SpecialHandler handler) {
+        if (handlerOverrides.containsKey(teClass)) {
+            BCLog.logger.warn("Overriding existing special handler for {}! This might break things.", teClass);
+        }
+        BCLog.logger.info("Registered special handler for {}.", teClass);
+        handlerOverrides.put(teClass, handler);
+    }
+
+    @FunctionalInterface
+    public static interface SpecialHandler {
+        public IMessage receivePayload(BlockPos pos, PacketBufferBC payload, MessageContext ctx) throws IOException;
+    }
 }

@@ -71,7 +71,16 @@ dependencies {
     testCompile "junit:junit:4.12"
 
     // I can has MCMP?
-    deobfCompile "MCMultiPart2:MCMultiPart-exp:2.4.1_54"
+    compile projectOrMvnD(":mcmultipart", "MCMultiPart2:MCMultiPart-exp:2.4.1_54")
+}
+
+def projectOrMvnD(String project, String artifact) {
+    Project p = findProject(project)
+    if (p != null)
+        dependencies { compile p }
+    else
+        dependencies { deobfCompile artifact }
+    []
 }
 
 minecraft {
@@ -157,7 +166,7 @@ processResources
     // replace stuff in mcmod.info, nothing else
     from(sourceSets.main.resources.srcDirs) {
         include 'mcmod.info'
-                
+
         // replace version and mcversion
         // ${version}   and    ${mcversion}    are the exact strings being replaced
         expand "version":project.version, "mcversion":project.minecraft.version
@@ -558,12 +567,12 @@ uploadArchives {
                                 id 'SirSngir'
                                 name 'SirSengir'
                                 roles { role 'developer' }
-                            }   
+                            }
                             developer {
                                 id 'Krapht'
                                 name 'Krapht'
                                 roles { role 'developer' }
-                            }   
+                            }
 
                         }
                     }

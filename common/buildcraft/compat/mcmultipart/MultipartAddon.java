@@ -17,16 +17,26 @@
 
 package buildcraft.compat.mcmultipart;
 
+import buildcraft.api.core.BCLog;
 import buildcraft.core.BCCore;
+import buildcraft.lib.BCLibProxy;
+import buildcraft.lib.misc.MessageUtil;
+import buildcraft.lib.net.IPayloadReceiver;
+import buildcraft.lib.net.MessageUpdateTile;
 import buildcraft.transport.BCTransportBlocks;
 import buildcraft.transport.tile.TilePipeHolder;
 import mcmultipart.api.addon.IMCMPAddon;
 import mcmultipart.api.addon.MCMPAddon;
 import mcmultipart.api.multipart.IMultipartRegistry;
 import mcmultipart.api.ref.MCMPCapabilities;
+import mcmultipart.block.TileMultipartContainer;
+import mcmultipart.util.MCMPWorldWrapper;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
@@ -35,11 +45,45 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @MCMPAddon
+// TODO: move to BCCompat
 public class MultipartAddon implements IMCMPAddon {
     public MultipartAddon() {
         MinecraftForge.EVENT_BUS.register(this);
+
+        MessageUpdateTile.SpecialHandler specialHandler = (pos, payload, ctx) -> {
+            EntityPlayer player = BCLibProxy.getProxy().getPlayerForContext(ctx);
+            if (player == null || player.world == null) return null;
+            TileEntity tile = player.world.getTileEntity(pos);
+            if (tile instanceof TileMultipartContainer) {
+                TileMultipartContainer tmc = (TileMultipartContainer) tile;
+                Collection<IPayloadReceiver> result = tmc.getParts().values().stream()
+                        .filter(it -> it.getTile() != null)
+                        .filter(it -> it.getTile().getTileEntity() instanceof IPayloadReceiver)
+                        .map(it -> (IPayloadReceiver) it.getTile().getTileEntity())
+                        .collect(Collectors.toSet());
+                if (result.size() == 1) {
+                    return result.iterator().next().receivePayload(ctx, payload);
+                } else {
+                    BCLog.logger.error("Ambiguous target at position {}: TileEntity with IPayloadReceiver", pos);
+                }
+            }
+            return null;
+        };
+        MessageUpdateTile.addSpecialHandler(TileMultipartContainer.class, specialHandler);
+        MessageUpdateTile.addSpecialHandler(TileMultipartContainer.Ticking.class, specialHandler);
+
+        MessageUtil.addWorldExtractor(MCMPWorldWrapper.class, it -> {
+            World w = it.getActualWorld();
+            if (w instanceof WorldServer) {
+                return Optional.of((WorldServer) w);
+            }
+            return Optional.empty();
+        });
     }
 
     @Override

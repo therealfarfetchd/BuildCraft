@@ -6,19 +6,14 @@
 
 package buildcraft.lib.misc;
 
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.UUID;
-
+import buildcraft.api.core.BCLog;
+import buildcraft.lib.BCLibProxy;
+import buildcraft.lib.misc.data.DelayedList;
+import buildcraft.lib.net.MessageManager;
+import buildcraft.lib.net.PacketBufferBC;
 import com.mojang.authlib.GameProfile;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.util.internal.StringUtil;
-
 import net.minecraft.block.Block;
 import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.IBlockState;
@@ -28,21 +23,21 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.server.management.PlayerChunkMapEntry;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
-
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import buildcraft.api.core.BCLog;
-
-import buildcraft.lib.BCLibProxy;
-import buildcraft.lib.misc.data.DelayedList;
-import buildcraft.lib.net.MessageManager;
-import buildcraft.lib.net.PacketBufferBC;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.function.Function;
 
 public class MessageUtil {
     private static final DelayedList<Runnable> DELAYED_TASKS = DelayedList.createConcurrent();
+
+    // TODO: move
+    private static final Map<Class<? extends IBlockAccess>, Function<IBlockAccess, Optional<WorldServer>>> worldExtractors = new HashMap<>();
 
     public static void doDelayed(Runnable task) {
         doDelayed(1, task);
@@ -59,8 +54,8 @@ public class MessageUtil {
     }
 
     public static void sendToAllWatching(World worldObj, BlockPos pos, IMessage message) {
-        if (worldObj instanceof WorldServer) {
-            WorldServer server = (WorldServer) worldObj;
+        Optional<WorldServer> opt = extract(worldObj);
+        opt.ifPresent(server -> {
             PlayerChunkMapEntry playerChunkMap = server.getPlayerChunkMap().getEntry(pos.getX() >> 4, pos.getZ() >> 4);
             if (playerChunkMap == null) {
                 // No-one was watching this chunk.
@@ -75,7 +70,7 @@ public class MessageUtil {
             // We could just use this instead, but that requires extra packet size as we are wrapping our
             // packet in an FML packet and sending it through the vanilla system, which is not really desired
             // playerChunkMap.sendPacket(MessageManager.getPacketFrom(message));
-        }
+        });
     }
 
     public static void sendToPlayers(Iterable<EntityPlayer> players, IMessage message) {
@@ -172,7 +167,9 @@ public class MessageUtil {
         return null;
     }
 
-    /** Writes a block state using the block ID and its metadata. Not suitable for full states. */
+    /**
+     * Writes a block state using the block ID and its metadata. Not suitable for full states.
+     */
     public static void writeBlockState(PacketBuffer buf, IBlockState state) {
         Block block = state.getBlock();
         buf.writeVarInt(Block.REGISTRY.getIDForObject(block));
@@ -217,12 +214,14 @@ public class MessageUtil {
     }
 
     private static <T extends Comparable<T>> IBlockState propertyReadHelper(IBlockState state, String value,
-        IProperty<T> prop) {
+                                                                            IProperty<T> prop) {
         return state.withProperty(prop, prop.parseValue(value).orNull());
     }
 
-    /** {@link PacketBuffer#writeEnumValue(Enum)} can only write *actual* enum values - so not null. This method allows
-     * for writing an enum value, or null. */
+    /**
+     * {@link PacketBuffer#writeEnumValue(Enum)} can only write *actual* enum values - so not null. This method allows
+     * for writing an enum value, or null.
+     */
     public static void writeEnumOrNull(ByteBuf buffer, Enum<?> value) {
         PacketBufferBC buf = PacketBufferBC.asPacketBufferBc(buffer);
         if (value == null) {
@@ -233,8 +232,10 @@ public class MessageUtil {
         }
     }
 
-    /** {@link PacketBuffer#readEnumValue(Class)} can only read *actual* enum values - so not null. This method allows
-     * for reading an enum value, or null. */
+    /**
+     * {@link PacketBuffer#readEnumValue(Class)} can only read *actual* enum values - so not null. This method allows
+     * for reading an enum value, or null.
+     */
     public static <E extends Enum<E>> E readEnumOrNull(ByteBuf buffer, Class<E> clazz) {
         PacketBufferBC buf = PacketBufferBC.asPacketBufferBc(buffer);
         if (buf.readBoolean()) {
@@ -283,8 +284,10 @@ public class MessageUtil {
         return new PacketBuffer(buf);
     }
 
-    /** Checks to make sure that this buffer has been *completely* read (so that there are no readable bytes left
-     * over */
+    /**
+     * Checks to make sure that this buffer has been *completely* read (so that there are no readable bytes left
+     * over
+     */
     public static void ensureEmpty(ByteBuf buf, boolean throwError, String extra) {
         int readableBytes = buf.readableBytes();
         int rb = readableBytes;
@@ -339,5 +342,23 @@ public class MessageUtil {
             }
             buf.clear();
         }
+    }
+
+    // TODO: move
+    @SuppressWarnings("unchecked")
+    public static <T extends IBlockAccess> void addWorldExtractor(Class<T> worldClass, Function<T, Optional<WorldServer>> transform) {
+        worldExtractors.put(worldClass, (Function<IBlockAccess, Optional<WorldServer>>) transform);
+    }
+
+    // TODO: move
+    public static Optional<WorldServer> extract(IBlockAccess world) {
+        if (worldExtractors.containsKey(world.getClass())) {
+            return worldExtractors.get(world.getClass()).apply(world);
+        }
+        return Optional.empty();
+    }
+
+    static {
+        addWorldExtractor(WorldServer.class, Optional::of);
     }
 }
