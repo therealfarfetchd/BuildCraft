@@ -62,9 +62,16 @@ ext.priv = parseConfig(file('private.properties'))
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
+repositories {
+    maven { url = "https://modmaven.k-4u.nl/" }
+}
+
 dependencies {
     // Testing
     testCompile "junit:junit:4.12"
+
+    // I can has MCMP?
+    deobfCompile "MCMultiPart2:MCMultiPart-exp:2.4.1_54"
 }
 
 minecraft {
