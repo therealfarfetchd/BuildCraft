@@ -6,13 +6,26 @@
 
 package buildcraft.transport.block;
 
-import java.lang.ref.WeakReference;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-
-import javax.annotation.Nullable;
-
+import buildcraft.api.blocks.ICustomPaintHandler;
+import buildcraft.api.core.EnumPipePart;
+import buildcraft.api.transport.EnumWirePart;
+import buildcraft.api.transport.IItemPluggable;
+import buildcraft.api.transport.WireNode;
+import buildcraft.api.transport.pipe.IPipeHolder;
+import buildcraft.api.transport.pipe.PipeApi;
+import buildcraft.api.transport.pipe.PipeDefinition;
+import buildcraft.api.transport.pluggable.PipePluggable;
+import buildcraft.lib.block.BlockBCTile_Neptune;
+import buildcraft.lib.misc.BoundingBoxUtil;
+import buildcraft.lib.misc.InventoryUtil;
+import buildcraft.lib.misc.VecUtil;
+import buildcraft.lib.prop.UnlistedNonNullProperty;
+import buildcraft.lib.tile.TileBC_Neptune;
+import buildcraft.transport.BCTransportItems;
+import buildcraft.transport.item.ItemWire;
+import buildcraft.transport.pipe.Pipe;
+import buildcraft.transport.tile.TilePipeHolder;
+import buildcraft.transport.wire.EnumWireBetween;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.properties.IProperty;
@@ -29,11 +42,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.stats.StatList;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.BlockRenderLayer;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.NonNullList;
+import net.minecraft.util.*;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
@@ -42,48 +51,30 @@ import net.minecraft.world.Explosion;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
-
 import net.minecraftforge.common.property.ExtendedBlockState;
 import net.minecraftforge.common.property.IExtendedBlockState;
 import net.minecraftforge.common.property.IUnlistedProperty;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import buildcraft.api.blocks.ICustomPaintHandler;
-import buildcraft.api.core.EnumPipePart;
-import buildcraft.api.transport.EnumWirePart;
-import buildcraft.api.transport.IItemPluggable;
-import buildcraft.api.transport.WireNode;
-import buildcraft.api.transport.pipe.IPipeHolder;
-import buildcraft.api.transport.pipe.PipeApi;
-import buildcraft.api.transport.pipe.PipeDefinition;
-import buildcraft.api.transport.pluggable.PipePluggable;
-
-import buildcraft.lib.block.BlockBCTile_Neptune;
-import buildcraft.lib.misc.BoundingBoxUtil;
-import buildcraft.lib.misc.InventoryUtil;
-import buildcraft.lib.misc.VecUtil;
-import buildcraft.lib.prop.UnlistedNonNullProperty;
-import buildcraft.lib.tile.TileBC_Neptune;
-
-import buildcraft.transport.BCTransportItems;
-import buildcraft.transport.item.ItemWire;
-import buildcraft.transport.pipe.Pipe;
-import buildcraft.transport.tile.TilePipeHolder;
-import buildcraft.transport.wire.EnumWireBetween;
+import javax.annotation.Nullable;
+import java.lang.ref.WeakReference;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 public class BlockPipeHolder extends BlockBCTile_Neptune implements ICustomPaintHandler {
     public static final IUnlistedProperty<WeakReference<TilePipeHolder>> PROP_TILE = new UnlistedNonNullProperty<>(
         "tile");
 
-    private static final AxisAlignedBB BOX_CENTER = new AxisAlignedBB(0.25, 0.25, 0.25, 0.75, 0.75, 0.75);
-    private static final AxisAlignedBB BOX_DOWN = new AxisAlignedBB(0.25, 0, 0.25, 0.75, 0.25, 0.75);
-    private static final AxisAlignedBB BOX_UP = new AxisAlignedBB(0.25, 0.75, 0.25, 0.75, 1, 0.75);
-    private static final AxisAlignedBB BOX_NORTH = new AxisAlignedBB(0.25, 0.25, 0, 0.75, 0.75, 0.25);
-    private static final AxisAlignedBB BOX_SOUTH = new AxisAlignedBB(0.25, 0.25, 0.75, 0.75, 0.75, 1);
-    private static final AxisAlignedBB BOX_WEST = new AxisAlignedBB(0, 0.25, 0.25, 0.25, 0.75, 0.75);
-    private static final AxisAlignedBB BOX_EAST = new AxisAlignedBB(0.75, 0.25, 0.25, 1, 0.75, 0.75);
-    private static final AxisAlignedBB[] BOX_FACES = { BOX_DOWN, BOX_UP, BOX_NORTH, BOX_SOUTH, BOX_WEST, BOX_EAST };
+    public static final AxisAlignedBB BOX_CENTER = new AxisAlignedBB(0.25, 0.25, 0.25, 0.75, 0.75, 0.75);
+    public static final AxisAlignedBB BOX_DOWN = new AxisAlignedBB(0.25, 0, 0.25, 0.75, 0.25, 0.75);
+    public static final AxisAlignedBB BOX_UP = new AxisAlignedBB(0.25, 0.75, 0.25, 0.75, 1, 0.75);
+    public static final AxisAlignedBB BOX_NORTH = new AxisAlignedBB(0.25, 0.25, 0, 0.75, 0.75, 0.25);
+    public static final AxisAlignedBB BOX_SOUTH = new AxisAlignedBB(0.25, 0.25, 0.75, 0.75, 0.75, 1);
+    public static final AxisAlignedBB BOX_WEST = new AxisAlignedBB(0, 0.25, 0.25, 0.25, 0.75, 0.75);
+    public static final AxisAlignedBB BOX_EAST = new AxisAlignedBB(0.75, 0.25, 0.25, 1, 0.75, 0.75);
+    public static final AxisAlignedBB[] BOX_FACES = {BOX_DOWN, BOX_UP, BOX_NORTH, BOX_SOUTH, BOX_WEST, BOX_EAST};
 
     public BlockPipeHolder(Material material, String id) {
         super(material, id);
@@ -497,7 +488,7 @@ public class BlockPipeHolder extends BlockBCTile_Neptune implements ICustomPaint
 
     @Override
     public boolean removedByPlayer(IBlockState state, World world, BlockPos pos, EntityPlayer player,
-        boolean willHarvest) {
+                                   boolean willHarvest) {
         if (world.isRemote) {
             return false;
         }
@@ -505,6 +496,16 @@ public class BlockPipeHolder extends BlockBCTile_Neptune implements ICustomPaint
         TilePipeHolder tile = getPipe(world, pos, false);
         if (tile == null) {
             return super.removedByPlayer(state, world, pos, player, willHarvest);
+        }
+
+        return removePipeParts(state, world, pos, player) &&
+                super.removedByPlayer(state, world, pos, player, willHarvest);
+    }
+
+    public boolean removePipeParts(IBlockState state, World world, BlockPos pos, EntityPlayer player) {
+        TilePipeHolder tile = getPipe(world, pos, false);
+        if (tile == null) {
+            return true;
         }
 
         NonNullList<ItemStack> toDrop = NonNullList.create();
@@ -535,7 +536,7 @@ public class BlockPipeHolder extends BlockBCTile_Neptune implements ICustomPaint
             return false;
         } else if (between != null) {
             toDrop.add(new ItemStack(BCTransportItems.wire, between.to == null ? 2 : 1, tile.wireManager.getColorOfPart(
-                between.parts[0]).getMetadata()));
+                    between.parts[0]).getMetadata()));
             if (between.to == null) {
                 tile.wireManager.removeParts(Arrays.asList(between.parts));
             } else {
@@ -555,7 +556,7 @@ public class BlockPipeHolder extends BlockBCTile_Neptune implements ICustomPaint
         if (!player.capabilities.isCreativeMode) {
             InventoryUtil.dropAll(world, pos, toDrop);
         }
-        return super.removedByPlayer(state, world, pos, player, willHarvest);
+        return true;
     }
 
     @Override

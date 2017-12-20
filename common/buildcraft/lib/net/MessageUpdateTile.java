@@ -9,6 +9,7 @@ package buildcraft.lib.net;
 import buildcraft.api.core.BCLog;
 import buildcraft.lib.BCLibProxy;
 import buildcraft.lib.misc.MessageUtil;
+import buildcraft.lib.misc.SpecialHandler;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.PacketBuffer;
@@ -16,15 +17,10 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 public class MessageUpdateTile implements IMessage {
-    private static Map<Class<? extends TileEntity>, SpecialHandler> handlerOverrides = new HashMap<>();
-
     private BlockPos pos;
     private PacketBufferBC payload;
 
@@ -67,8 +63,8 @@ public class MessageUpdateTile implements IMessage {
         TileEntity tile = player.world.getTileEntity(message.pos);
 
         try {
-            if (tile != null && handlerOverrides.containsKey(tile.getClass())) {
-                return handlerOverrides.get(tile.getClass()).receivePayload(message.pos, message.payload, ctx);
+            if (tile != null && SpecialHandler.hasOverrideForTile(tile)) {
+                return SpecialHandler.handleTileMessage(tile, message.pos, message.payload, ctx);
             } else if (tile instanceof IPayloadReceiver) {
                 return ((IPayloadReceiver) tile).receivePayload(ctx, message.payload);
             } else {
@@ -81,17 +77,4 @@ public class MessageUpdateTile implements IMessage {
 
         return null;
     };
-
-    public static <T extends TileEntity> void addSpecialHandler(Class<T> teClass, SpecialHandler handler) {
-        if (handlerOverrides.containsKey(teClass)) {
-            BCLog.logger.warn("Overriding existing special handler for {}! This might break things.", teClass);
-        }
-        BCLog.logger.info("Registered special handler for {}.", teClass);
-        handlerOverrides.put(teClass, handler);
-    }
-
-    @FunctionalInterface
-    public static interface SpecialHandler {
-        public IMessage receivePayload(BlockPos pos, PacketBufferBC payload, MessageContext ctx) throws IOException;
-    }
 }

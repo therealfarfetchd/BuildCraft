@@ -12,6 +12,7 @@ import java.util.List;
 
 import javax.annotation.Nonnull;
 
+import buildcraft.lib.misc.SpecialHandler;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.EnumDyeColor;
 import net.minecraft.item.Item;
@@ -246,6 +247,9 @@ public final class Pipe implements IPipe, IDebuggable {
             if (oPipe != null) {
                 PipeBehaviour oBehaviour = oPipe.getBehaviour();
                 if (oBehaviour == null) {
+                    continue;
+                }
+                if (!SpecialHandlerPipe.canPipesConnect(facing, this, oPipe)) {
                     continue;
                 }
                 PipePluggable oPlug = oTile.getCapability(PipeApi.CAP_PLUG, facing.getOpposite());

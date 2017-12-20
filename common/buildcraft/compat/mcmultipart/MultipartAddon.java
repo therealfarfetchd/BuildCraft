@@ -21,15 +21,18 @@ import buildcraft.api.core.BCLog;
 import buildcraft.api.transport.pipe.PipeApi;
 import buildcraft.core.BCCore;
 import buildcraft.lib.BCLibProxy;
-import buildcraft.lib.misc.MessageUtil;
+import buildcraft.lib.misc.SpecialHandler;
 import buildcraft.lib.net.IPayloadReceiver;
-import buildcraft.lib.net.MessageUpdateTile;
 import buildcraft.transport.BCTransportBlocks;
+import buildcraft.transport.block.BlockPipeHolder;
+import buildcraft.transport.pipe.SpecialHandlerPipe;
 import buildcraft.transport.tile.TilePipeHolder;
 import mcmultipart.api.addon.IMCMPAddon;
 import mcmultipart.api.addon.MCMPAddon;
 import mcmultipart.api.multipart.IMultipartRegistry;
+import mcmultipart.api.multipart.MultipartOcclusionHelper;
 import mcmultipart.api.ref.MCMPCapabilities;
+import mcmultipart.api.slot.EnumCenterSlot;
 import mcmultipart.block.TileMultipartContainer;
 import mcmultipart.util.MCMPWorldWrapper;
 import net.minecraft.entity.player.EntityPlayer;
@@ -37,6 +40,7 @@ import net.minecraft.item.Item;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
@@ -48,6 +52,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -58,7 +63,7 @@ public class MultipartAddon implements IMCMPAddon {
     public MultipartAddon() {
         MinecraftForge.EVENT_BUS.register(this);
 
-        MessageUpdateTile.SpecialHandler specialHandler = (pos, payload, ctx) -> {
+        SpecialHandler.SpecialPayloadHandler specialHandler = (pos, payload, ctx) -> {
             EntityPlayer player = BCLibProxy.getProxy().getPlayerForContext(ctx);
             if (player == null || player.world == null) return null;
             TileEntity tile = player.world.getTileEntity(pos);
@@ -77,15 +82,29 @@ public class MultipartAddon implements IMCMPAddon {
             }
             return null;
         };
-        MessageUpdateTile.addSpecialHandler(TileMultipartContainer.class, specialHandler);
-        MessageUpdateTile.addSpecialHandler(TileMultipartContainer.Ticking.class, specialHandler);
+        SpecialHandler.addPayloadHandler(TileMultipartContainer.class, specialHandler);
+        SpecialHandler.addPayloadHandler(TileMultipartContainer.Ticking.class, specialHandler);
 
-        MessageUtil.addWorldExtractor(MCMPWorldWrapper.class, it -> {
+        SpecialHandler.addWorldExtractor(MCMPWorldWrapper.class, it -> {
             World w = it.getActualWorld();
             if (w instanceof WorldServer) {
                 return Optional.of((WorldServer) w);
             }
             return Optional.empty();
+        });
+
+        SpecialHandlerPipe.addConnectionCondition((facing, self) -> {
+            World world = self.getHolder().getPipeWorld();
+            BlockPos pos = self.getHolder().getPipePos();
+            if (world instanceof MCMPWorldWrapper)
+                world = ((MCMPWorldWrapper) world).getActualWorld();
+            TileEntity te = world.getTileEntity(pos);
+            if (te instanceof TileMultipartContainer) {
+                TileMultipartContainer tmc = (TileMultipartContainer) te;
+                return !MultipartOcclusionHelper.testContainerBoxIntersection(tmc,
+                        Collections.singleton(BlockPipeHolder.BOX_FACES[facing.getIndex()]),
+                        it -> it == EnumCenterSlot.CENTER);
+            } else return true;
         });
     }
 

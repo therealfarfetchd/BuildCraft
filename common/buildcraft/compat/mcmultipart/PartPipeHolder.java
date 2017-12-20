@@ -24,10 +24,13 @@ import mcmultipart.api.slot.EnumCenterSlot;
 import mcmultipart.api.slot.IPartSlot;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
@@ -58,5 +61,24 @@ public class PartPipeHolder implements IMultipart {
     @Override
     public List<AxisAlignedBB> getOcclusionBoxes(IPartInfo part) {
         return Collections.emptyList();
+    }
+
+    @Override
+    public AxisAlignedBB getSelectedBoundingBox(IPartInfo part) {
+        // unbox the hit result since pipe's getSelectedBoundingBox goes nuts otherwise
+        Minecraft mc = Minecraft.getMinecraft();
+        RayTraceResult backup = mc.objectMouseOver;
+        if (backup.hitInfo instanceof RayTraceResult) {
+            mc.objectMouseOver = (RayTraceResult) backup.hitInfo;
+            AxisAlignedBB result = part.getState().getSelectedBoundingBox(part.getPartWorld(), part.getPartPos());
+            mc.objectMouseOver = backup;
+            return result;
+        }
+        return Block.FULL_BLOCK_AABB;
+    }
+
+    @Override
+    public boolean canPlayerDestroy(IPartInfo part, EntityPlayer player) {
+        return BCTransportBlocks.pipeHolder.removePipeParts(part.getState(), part.getPartWorld(), part.getPartPos(), player);
     }
 }

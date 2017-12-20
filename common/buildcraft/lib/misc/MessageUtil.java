@@ -36,9 +36,6 @@ import java.util.function.Function;
 public class MessageUtil {
     private static final DelayedList<Runnable> DELAYED_TASKS = DelayedList.createConcurrent();
 
-    // TODO: move
-    private static final Map<Class<? extends IBlockAccess>, Function<IBlockAccess, Optional<WorldServer>>> worldExtractors = new HashMap<>();
-
     public static void doDelayed(Runnable task) {
         doDelayed(1, task);
     }
@@ -54,7 +51,7 @@ public class MessageUtil {
     }
 
     public static void sendToAllWatching(World worldObj, BlockPos pos, IMessage message) {
-        Optional<WorldServer> opt = extract(worldObj);
+        Optional<WorldServer> opt = SpecialHandler.extractWorld(worldObj);
         opt.ifPresent(server -> {
             PlayerChunkMapEntry playerChunkMap = server.getPlayerChunkMap().getEntry(pos.getX() >> 4, pos.getZ() >> 4);
             if (playerChunkMap == null) {
@@ -342,23 +339,5 @@ public class MessageUtil {
             }
             buf.clear();
         }
-    }
-
-    // TODO: move
-    @SuppressWarnings("unchecked")
-    public static <T extends IBlockAccess> void addWorldExtractor(Class<T> worldClass, Function<T, Optional<WorldServer>> transform) {
-        worldExtractors.put(worldClass, (Function<IBlockAccess, Optional<WorldServer>>) transform);
-    }
-
-    // TODO: move
-    public static Optional<WorldServer> extract(IBlockAccess world) {
-        if (worldExtractors.containsKey(world.getClass())) {
-            return worldExtractors.get(world.getClass()).apply(world);
-        }
-        return Optional.empty();
-    }
-
-    static {
-        addWorldExtractor(WorldServer.class, Optional::of);
     }
 }
