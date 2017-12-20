@@ -18,6 +18,7 @@
 package buildcraft.compat.mcmultipart;
 
 import buildcraft.api.core.BCLog;
+import buildcraft.api.transport.pipe.PipeApi;
 import buildcraft.core.BCCore;
 import buildcraft.lib.BCLibProxy;
 import buildcraft.lib.misc.MessageUtil;
@@ -32,6 +33,7 @@ import mcmultipart.api.ref.MCMPCapabilities;
 import mcmultipart.block.TileMultipartContainer;
 import mcmultipart.util.MCMPWorldWrapper;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
@@ -48,6 +50,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 @MCMPAddon
 // TODO: move to BCCompat
@@ -89,11 +92,14 @@ public class MultipartAddon implements IMCMPAddon {
     @Override
     public void registerParts(IMultipartRegistry registry) {
         registry.registerPartWrapper(BCTransportBlocks.pipeHolder, PartPipeHolder.INSTANCE);
+        StreamSupport.stream(PipeApi.pipeRegistry.getAllRegisteredPipes().spliterator(), false)
+                .map(PipeApi.pipeRegistry::getItemForPipe)
+                .filter(it -> it instanceof Item)
+                .forEach(it -> registry.registerStackWrapper((Item) it, BCTransportBlocks.pipeHolder));
     }
 
     @SubscribeEvent
     public void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> e) {
-        System.out.println(e.getObject());
         if (e.getObject() instanceof TilePipeHolder) {
             TilePartPipeHolder tpph = new TilePartPipeHolder((TilePipeHolder) e.getObject());
             e.addCapability(new ResourceLocation(BCCore.MODID, "multipart"), new ICapabilityProvider() {
