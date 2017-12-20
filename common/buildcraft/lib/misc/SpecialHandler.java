@@ -33,11 +33,12 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class SpecialHandler {
-    private SpecialHandler() {
-    }
-
     private static final Map<Class<? extends TileEntity>, SpecialPayloadHandler> handlerOverrides = new HashMap<>();
     private static final Map<Class<? extends IBlockAccess>, Function<IBlockAccess, Optional<WorldServer>>> worldExtractors = new HashMap<>();
+
+    static {
+        addWorldExtractor(WorldServer.class, Optional::of);
+    }
 
     public static boolean hasOverrideForTile(TileEntity t) {
         return handlerOverrides.containsKey(t.getClass());
@@ -63,18 +64,17 @@ public class SpecialHandler {
     }
 
     public static Optional<WorldServer> extractWorld(IBlockAccess world) {
-        if (worldExtractors.containsKey(world.getClass())) {
+        if (world != null && worldExtractors.containsKey(world.getClass())) {
             return worldExtractors.get(world.getClass()).apply(world);
         }
         return Optional.empty();
     }
 
-    static {
-        addWorldExtractor(WorldServer.class, Optional::of);
-    }
-
     @FunctionalInterface
     public static interface SpecialPayloadHandler {
         public IMessage receivePayload(BlockPos pos, PacketBufferBC payload, MessageContext ctx) throws IOException;
+    }
+
+    private SpecialHandler() {
     }
 }

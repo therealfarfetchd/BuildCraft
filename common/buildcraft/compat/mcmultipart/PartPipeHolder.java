@@ -18,6 +18,7 @@
 package buildcraft.compat.mcmultipart;
 
 import buildcraft.transport.BCTransportBlocks;
+import buildcraft.transport.block.BlockPipeHolder;
 import mcmultipart.api.container.IPartInfo;
 import mcmultipart.api.multipart.IMultipart;
 import mcmultipart.api.slot.EnumCenterSlot;
@@ -60,7 +61,7 @@ public class PartPipeHolder implements IMultipart {
 
     @Override
     public List<AxisAlignedBB> getOcclusionBoxes(IPartInfo part) {
-        return Collections.emptyList();
+        return Collections.singletonList(BlockPipeHolder.BOX_CENTER);
     }
 
     @Override

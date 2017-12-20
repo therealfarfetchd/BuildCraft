@@ -29,6 +29,7 @@ import buildcraft.transport.pipe.SpecialHandlerPipe;
 import buildcraft.transport.tile.TilePipeHolder;
 import mcmultipart.api.addon.IMCMPAddon;
 import mcmultipart.api.addon.MCMPAddon;
+import mcmultipart.api.container.IMultipartContainer;
 import mcmultipart.api.multipart.IMultipartRegistry;
 import mcmultipart.api.multipart.MultipartOcclusionHelper;
 import mcmultipart.api.ref.MCMPCapabilities;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -92,6 +94,14 @@ public class MultipartAddon implements IMCMPAddon {
             }
             return Optional.empty();
         });
+
+
+        Function<IMultipartContainer, Optional<TilePipeHolder>> pipeExtractor = it -> it.getPartTile(EnumCenterSlot.CENTER)
+                .filter(te -> te.getTileEntity() instanceof TilePipeHolder)
+                .map(te -> (TilePipeHolder) te.getTileEntity());
+
+        SpecialHandlerPipe.addPipeExtractor(TileMultipartContainer.class, pipeExtractor);
+        SpecialHandlerPipe.addPipeExtractor(TileMultipartContainer.Ticking.class, pipeExtractor);
 
         SpecialHandlerPipe.addConnectionCondition((facing, self) -> {
             World world = self.getHolder().getPipeWorld();

@@ -18,15 +18,31 @@
 package buildcraft.transport.pipe;
 
 import buildcraft.api.transport.pipe.IPipe;
+import buildcraft.transport.tile.TilePipeHolder;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 
 public class SpecialHandlerPipe {
+    private static final Map<Class<? extends TileEntity>, Function<TileEntity, Optional<TilePipeHolder>>> pipeExtractors = new HashMap<>();
     private static final Set<PipeConnectionLogic> conditions = new HashSet<>();
 
-    private SpecialHandlerPipe() {
+    static {
+        addPipeExtractor(TilePipeHolder.class, Optional::of);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends TileEntity> void addPipeExtractor(Class<T> worldClass, Function<? super T, Optional<TilePipeHolder>> transform) {
+        pipeExtractors.put(worldClass, (Function<TileEntity, Optional<TilePipeHolder>>) transform);
+    }
+
+    public static Optional<TilePipeHolder> extractPipe(TileEntity tile) {
+        if (tile != null && pipeExtractors.containsKey(tile.getClass())) {
+            return pipeExtractors.get(tile.getClass()).apply(tile);
+        }
+        return Optional.empty();
     }
 
     public static boolean canPipesConnect(EnumFacing facing, IPipe self, IPipe other) {
@@ -44,5 +60,8 @@ public class SpecialHandlerPipe {
     @FunctionalInterface
     public static interface PipeConnectionLogic {
         public boolean checkPipe(EnumFacing facing, IPipe self);
+    }
+
+    private SpecialHandlerPipe() {
     }
 }

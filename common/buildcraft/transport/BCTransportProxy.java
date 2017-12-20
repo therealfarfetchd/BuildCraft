@@ -6,6 +6,7 @@
 
 package buildcraft.transport;
 
+import buildcraft.transport.pipe.SpecialHandlerPipe;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
@@ -51,6 +52,8 @@ import buildcraft.transport.tile.TilePipeHolder;
 import buildcraft.transport.wire.MessageWireSystems;
 import buildcraft.transport.wire.MessageWireSystemsPowered;
 
+import java.util.Optional;
+
 public abstract class BCTransportProxy implements IGuiHandler {
     @SidedProxy(modId = BCTransport.MODID)
     private static BCTransportProxy proxy;
@@ -64,7 +67,7 @@ public abstract class BCTransportProxy implements IGuiHandler {
         BCTransportGuis gui = BCTransportGuis.get(id);
         if (gui == null) return null;
         TileEntity tile = world.getTileEntity(new BlockPos(x, y, z));
-
+        TilePipeHolder tilePipe = SpecialHandlerPipe.extractPipe(tile).orElse(null);
         switch (gui) {
             case FILTERED_BUFFER: {
                 if (tile instanceof TileFilteredBuffer) {
@@ -74,9 +77,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                 break;
             }
             case PIPE_DIAMOND: {
-                if (tile instanceof IPipeHolder) {
-                    IPipeHolder holder = (IPipeHolder) tile;
-                    IPipe pipe = holder.getPipe();
+                if (tilePipe != null) {
+                    IPipe pipe = tilePipe.getPipe();
                     if (pipe == null) return null;
                     PipeBehaviour behaviour = pipe.getBehaviour();
                     if (behaviour instanceof PipeBehaviourDiamond) {
@@ -87,9 +89,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                 break;
             }
             case PIPE_DIAMOND_WOOD: {
-                if (tile instanceof IPipeHolder) {
-                    IPipeHolder holder = (IPipeHolder) tile;
-                    IPipe pipe = holder.getPipe();
+                if (tilePipe != null) {
+                    IPipe pipe = tilePipe.getPipe();
                     if (pipe == null) return null;
                     PipeBehaviour behaviour = pipe.getBehaviour();
                     if (behaviour instanceof PipeBehaviourWoodDiamond) {
@@ -100,9 +101,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                 break;
             }
             case PIPE_EMZULI: {
-                if (tile instanceof IPipeHolder) {
-                    IPipeHolder holder = (IPipeHolder) tile;
-                    IPipe pipe = holder.getPipe();
+                if (tilePipe != null) {
+                    IPipe pipe = tilePipe.getPipe();
                     if (pipe == null) return null;
                     PipeBehaviour behaviour = pipe.getBehaviour();
                     if (behaviour instanceof PipeBehaviourEmzuli) {
@@ -116,14 +116,13 @@ public abstract class BCTransportProxy implements IGuiHandler {
                 int ry = y >> 3;
                 EnumFacing gateSide = EnumFacing.getFront(y & 0x7);
                 tile = world.getTileEntity(new BlockPos(x, ry, z));
-                if (tile instanceof IPipeHolder) {
-                    IPipeHolder holder = (IPipeHolder) tile;
+                return SpecialHandlerPipe.extractPipe(tile).flatMap(holder -> {
                     PipePluggable plug = holder.getPluggable(gateSide);
                     if (plug instanceof PluggableGate) {
-                        return new ContainerGate(player, ((PluggableGate) plug).logic);
+                        return Optional.of(new ContainerGate(player, ((PluggableGate) plug).logic));
                     }
-                }
-                break;
+                    return Optional.empty();
+                }).orElse(null);
             }
         }
         return null;
@@ -204,10 +203,9 @@ public abstract class BCTransportProxy implements IGuiHandler {
         @Override
         public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
             BCTransportGuis gui = BCTransportGuis.get(id);
-            if (gui == null) {
-                return null;
-            }
+            if (gui == null) return null;
             TileEntity tile = world.getTileEntity(new BlockPos(x, y, z));
+            TilePipeHolder tilePipe = SpecialHandlerPipe.extractPipe(tile).orElse(null);
             switch (gui) {
                 case FILTERED_BUFFER: {
                     if (tile instanceof TileFilteredBuffer) {
@@ -217,9 +215,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                     break;
                 }
                 case PIPE_DIAMOND: {
-                    if (tile instanceof IPipeHolder) {
-                        IPipeHolder holder = (IPipeHolder) tile;
-                        IPipe pipe = holder.getPipe();
+                    if (tilePipe != null) {
+                        IPipe pipe = tilePipe.getPipe();
                         if (pipe == null) return null;
                         PipeBehaviour behaviour = pipe.getBehaviour();
                         if (behaviour instanceof PipeBehaviourDiamond) {
@@ -230,9 +227,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                     break;
                 }
                 case PIPE_DIAMOND_WOOD: {
-                    if (tile instanceof IPipeHolder) {
-                        IPipeHolder holder = (IPipeHolder) tile;
-                        IPipe pipe = holder.getPipe();
+                    if (tilePipe != null) {
+                        IPipe pipe = tilePipe.getPipe();
                         if (pipe == null) return null;
                         PipeBehaviour behaviour = pipe.getBehaviour();
                         if (behaviour instanceof PipeBehaviourWoodDiamond) {
@@ -243,9 +239,8 @@ public abstract class BCTransportProxy implements IGuiHandler {
                     break;
                 }
                 case PIPE_EMZULI: {
-                    if (tile instanceof IPipeHolder) {
-                        IPipeHolder holder = (IPipeHolder) tile;
-                        IPipe pipe = holder.getPipe();
+                    if (tilePipe != null) {
+                        IPipe pipe = tilePipe.getPipe();
                         if (pipe == null) return null;
                         PipeBehaviour behaviour = pipe.getBehaviour();
                         if (behaviour instanceof PipeBehaviourEmzuli) {
@@ -259,14 +254,13 @@ public abstract class BCTransportProxy implements IGuiHandler {
                     int ry = y >> 3;
                     EnumFacing gateSide = EnumFacing.getFront(y & 0x7);
                     tile = world.getTileEntity(new BlockPos(x, ry, z));
-                    if (tile instanceof IPipeHolder) {
-                        IPipeHolder holder = (IPipeHolder) tile;
+                    return SpecialHandlerPipe.extractPipe(tile).flatMap(holder -> {
                         PipePluggable plug = holder.getPluggable(gateSide);
                         if (plug instanceof PluggableGate) {
-                            return new GuiGate(new ContainerGate(player, ((PluggableGate) plug).logic));
+                            return Optional.of(new GuiGate(new ContainerGate(player, ((PluggableGate) plug).logic)));
                         }
-                    }
-                    break;
+                        return Optional.empty();
+                    }).orElse(null);
                 }
             }
             return null;
